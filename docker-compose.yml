@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: bd-postgres
+    environment:
+      POSTGRES_DB: bigdata
+      POSTGRES_USER: bigdata
+      POSTGRES_PASSWORD: bigdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      - "./исходные данные:/data:ro"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: bd-clickhouse
+    ports:
+      - "8123:8123"
+      - "9001:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  spark-master:
+    image: apache/spark:3.5.0
+    container_name: bd-spark-master
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master --port 7077 --webui-port 8080
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    volumes:
+      - ./spark:/opt/spark-apps
+
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: bd-spark-worker
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark:/opt/spark-apps
+
+  mongodb:
+    image: mongo:7
+    container_name: bd-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: reports
+
+networks:
+  default:
+    name: bd-network
